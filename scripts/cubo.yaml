@@ -1,0 +1,11 @@
+# cubo.yaml
+# Ruta relativa a la carpeta del dataset (cambia si es necesario)
+path: \datasets\cubo_morado # <- CAMBIA ESTO (o usa un path relativo si la carpeta está cerca)
+
+# Rutas de las carpetas de entrenamiento y validación
+train: images/train  # ruta a la carpeta train de images
+val: images/val      # ruta a la carpeta val de images
+
+# Clases (debe ser el nombre del objeto que quieres detectar)
+names:
+  0: cubo_purpura # Clase 0 será el "cubo_purpura"
