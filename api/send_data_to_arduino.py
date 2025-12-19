@@ -4,7 +4,7 @@ import requests
 import json
 import sys
 
-API_URL = "http://10.108.233.64:5000/api/angulos_braccio"
+API_URL = "http://10.108.232.7:5000/api/angulos_braccio"
 PORT = "COM4"
 BAUD = 9600
 
