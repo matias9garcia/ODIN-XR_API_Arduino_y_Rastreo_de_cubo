@@ -1,107 +1,123 @@
 import cv2
 import time
+import math
+import requests
 from ultralytics import YOLO
 
+# --- Configuración de Parámetros ---
+PXM_RATIO = 0.1  
+PREDICTION_INTERVAL = 0.1 
+API_URL = "http://localhost:5000/api/posicion" # URL de tu API Flask
+# -----------------------------------
+
+def enviar_a_api(x, y, z):
+    """Envía las coordenadas calculadas al servidor Flask."""
+    payload = {
+        "x": round(x, 2),
+        "y": round(y, 2),
+        "z": round(z, 2)
+    }
+    try:
+        # Usamos un timeout pequeño para no congelar el flujo de video si la API tarda
+        response = requests.post(API_URL, json=payload, timeout=0.05)
+        if response.status_code == 200:
+            print(f"🚀 API Update: X:{payload['x']} Y:{payload['y']} Z:{payload['z']}")
+    except Exception as e:
+        print(f"⚠️ Error de conexión con API: {e}")
+
 def seleccionar_camara():
-    """
-    Busca y selecciona la primera cámara USB disponible.
-    """
-    print("🔍 Buscando cámaras disponibles...")
     camaras_disponibles = []
-    
-    # Rango de 0 a 4 para buscar índices de cámara (puedes ampliarlo si tienes más cámaras)
     for i in range(5):
         cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
         if cap.isOpened():
             ret, _ = cap.read()
-            if ret:
-                print(f"✅ Cámara detectada en índice {i}")
-                camaras_disponibles.append(i)
+            if ret: camaras_disponibles.append(i)
             cap.release()
-            
-    if not camaras_disponibles:
-        print("⚠️ No se detectó ninguna cámara. Verifica la conexión USB o los drivers.")
-        return -1 
-    
-    camara_seleccionada = min(camaras_disponibles)
-    print(f"🎥 Usando cámara en índice: {camara_seleccionada}")
-    return camara_seleccionada
+    return max(camaras_disponibles) if camaras_disponibles else -1
 
 def main():
-    """
-    Carga el modelo YOLO y realiza la detección a una frecuencia limitada (cada 0.5 segundos).
-    """
     try:
-        model = YOLO("my_model.pt")
-        print("✅ Modelo YOLO 'my_model.pt' cargado exitosamente.")
+        model = YOLO("my_model_2.pt")
+        print("✅ Modelo cargado y sistema de visión listo.")
     except Exception as e:
-        print(f"❌ Error al cargar el modelo 'my_model.pt': {e}")
-        print("Asegúrate de que el archivo del modelo esté en la ruta correcta.")
-        return
+        print(f"❌ Error al cargar modelo: {e}"); return
 
     camera_index = seleccionar_camara()
-    if camera_index == -1:
-        print("Saliendo del programa porque no se pudo encontrar una cámara.")
-        return
-
+    if camera_index == -1: return
     cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
-
-    if not cap.isOpened():
-        print(f"❌ Error: No se pudo abrir la cámara en el índice {camera_index}.")
-        print("Asegúrate de que la cámara no esté siendo utilizada por otra aplicación.")
-        return
-
-    # --- Configuración de Temporización ---
-    PREDICTION_INTERVAL = 0.2  # Intervalo de tiempo en segundos (0.5s)
-    last_prediction_time = time.time()  # Inicializa el tiempo de la última predicción
-    # -------------------------------------
-
-    # Variable para almacenar el frame ANOTADO de la última predicción
+    
+    last_prediction_time = time.time()
     annotated_frame = None 
-
-    print("\n--- Detección en tiempo real iniciada (Predicción limitada a 0.5s) ---")
-    print("Presiona 'q' para salir.")
 
     while True:
         ret, frame = cap.read()
-        if not ret:
-            print("❌ Error: No se pudo leer el frame de la cámara. Saliendo...")
-            break
-
+        if not ret: break
         current_time = time.time()
         
-        # --- Lógica de Predicción con Temporizador ---
         if (current_time - last_prediction_time) >= PREDICTION_INTERVAL:
+            results = model(frame, verbose=False)
             
-            # 1. Realiza la inferencia SÓLO si han pasado 0.5 segundos
-            results = model(frame, stream=True)
+            ansuz_data = None
+            cubo_morado_data = None
+            max_conf_ansuz = -1.0
+            max_conf_cubo = -1.0
             
-            # 2. Obtiene el frame anotado y lo guarda
+            annotated_frame = frame.copy()
+
             for r in results:
-                annotated_frame = r.plot()
-                break # Solo necesitamos un frame anotado
-            
-            # 3. Actualiza el tiempo de la última predicción
+                for box in r.boxes:
+                    conf = float(box.conf[0])
+                    class_id = int(box.cls[0])
+                    class_name = model.names[class_id]
+                    
+                    b = box.xyxy[0].cpu().numpy()
+                    x1, y1, x2, y2 = map(int, b)
+                    cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+                    area = (x2 - x1) * (y2 - y1)
+
+                    # Seleccionar solo el Ansuz con mayor confianza
+                    if class_name == "ansuz" and conf > max_conf_ansuz:
+                        max_conf_ansuz = conf
+                        ansuz_data = {'centro': (cx, cy), 'area': area, 'bbox': (x1, y1, x2, y2), 'conf': conf}
+
+                    # Seleccionar solo el Cubo Morado con mayor confianza
+                    elif class_name == "cubo_morado" and conf > max_conf_cubo:
+                        max_conf_cubo = conf
+                        cubo_morado_data = {'centro': (cx, cy), 'area': area, 'bbox': (x1, y1, x2, y2), 'conf': conf}
+
+            # --- Procesamiento de Datos y Comunicación ---
+            if ansuz_data and cubo_morado_data:
+                # Cálculo de distancias relativas
+                dx = (cubo_morado_data['centro'][0] - ansuz_data['centro'][0]) * PXM_RATIO
+                dy = (ansuz_data['centro'][1] - cubo_morado_data['centro'][1]) * PXM_RATIO
+                relacion_z = math.sqrt(ansuz_data['area'] / cubo_morado_data['area'])
+                dz = (relacion_z - 1.0) * 10 
+                
+                # ENVÍO A LA API
+                enviar_a_api(dx, dy, dz)
+
+                # Visualización en pantalla
+                cv2.line(annotated_frame, ansuz_data['centro'], cubo_morado_data['centro'], (0, 255, 0), 2)
+                cv2.putText(annotated_frame, f"Rel X:{dx:.1f} Y:{dy:.1f} Z:{dz:.1f}", 
+                            (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+            # Dibujar cuadros de detección
+            for obj, color, label in [(ansuz_data, (0, 255, 255), "Ansuz"), (cubo_morado_data, (255, 0, 255), "Cubo")]:
+                if obj:
+                    x1, y1, x2, y2 = obj['bbox']
+                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+                    cv2.putText(annotated_frame, f"{label} {obj['conf']:.2f}", (x1, y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
             last_prediction_time = current_time
         
-        # --- Mostrar el Frame ---
-        # Si ya se ha realizado una predicción, muestra el último frame anotado.
-        # Si no, muestra el frame crudo para mantener el video fluido mientras se espera.
-        if annotated_frame is not None:
-            cv2.imshow('YOLOv8 Live Detection (0.5s Update)', annotated_frame)
-        else:
-            # Esto se ejecutará en la primera iteración antes de la primera predicción
-             cv2.imshow('YOLOv8 Live Detection (0.5s Update)', frame)
+        display_frame = annotated_frame if annotated_frame is not None else frame
+        cv2.imshow('Interfaz del gemelo fisico - ODIN-XR', display_frame)
 
+        if cv2.waitKey(1) & 0xFF == ord('q'): break
 
-        # Salir si se presiona la tecla 'q'
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    # Libera la cámara y destruye todas las ventanas de OpenCV
     cap.release()
     cv2.destroyAllWindows()
-    print("\n--- Detección finalizada ---")
 
 if __name__ == "__main__":
     main()

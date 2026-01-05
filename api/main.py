@@ -11,9 +11,6 @@ data_cubo = {
     "x": 0.25,
     "y": 1.10,
     "z": 1,
-    "pitch": 15.0,
-    "yaw": 45.0,
-    "roll": 5.0
 }
 
 # JSON estático inicial
