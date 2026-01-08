@@ -110,7 +110,7 @@ def main():
             last_prediction_time = current_time
         
         display_frame = annotated_frame if annotated_frame is not None else frame
-        cv2.imshow('Robotica Vision - Filtro de Confianza', display_frame)
+        cv2.imshow('Módulo de visión artificial - ODIN-XR', display_frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'): break
 

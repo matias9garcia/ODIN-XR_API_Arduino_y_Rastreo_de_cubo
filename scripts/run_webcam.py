@@ -7,7 +7,7 @@ from ultralytics import YOLO
 # --- Configuración de Parámetros ---
 PXM_RATIO = 0.1  
 PREDICTION_INTERVAL = 0.1 
-API_URL = "http://localhost:5000/api/posicion" # URL de tu API Flask
+API_URL = "https://dustin-unedible-bethany.ngrok-free.dev/api/posicion" # URL de tu API Flask
 # -----------------------------------
 
 def enviar_a_api(x, y, z):
@@ -33,7 +33,7 @@ def seleccionar_camara():
             ret, _ = cap.read()
             if ret: camaras_disponibles.append(i)
             cap.release()
-    return max(camaras_disponibles) if camaras_disponibles else -1
+    return min(camaras_disponibles) if camaras_disponibles else -1
 
 def main():
     try:
