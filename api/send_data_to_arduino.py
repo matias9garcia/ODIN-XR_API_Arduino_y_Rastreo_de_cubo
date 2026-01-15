@@ -4,7 +4,7 @@ import requests
 import json
 import sys
 
-API_URL = "https://dustin-unedible-bethany.ngrok-free.dev/api/angulos_braccio"
+API_URL = "http://127.0.0.1:5000/api/angulos_braccio"
 PORT = "COM4"
 BAUD = 9600
 

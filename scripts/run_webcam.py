@@ -7,7 +7,7 @@ from ultralytics import YOLO
 # --- Configuración de Parámetros ---
 PXM_RATIO = 0.1  
 PREDICTION_INTERVAL = 0.1 
-API_URL = "https://dustin-unedible-bethany.ngrok-free.dev/api/posicion" # URL de tu API Flask
+API_URL = "http://127.0.0.1:5000/api/posicion" # URL de tu API Flask
 # -----------------------------------
 
 def enviar_a_api(x, y, z):
@@ -19,7 +19,7 @@ def enviar_a_api(x, y, z):
     }
     try:
         # Usamos un timeout pequeño para no congelar el flujo de video si la API tarda
-        response = requests.post(API_URL, json=payload, timeout=0.05)
+        response = requests.post(API_URL, json=payload, timeout=0.5)
         if response.status_code == 200:
             print(f"🚀 API Update: X:{payload['x']} Y:{payload['y']} Z:{payload['z']}")
     except Exception as e:
