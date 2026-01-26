@@ -37,7 +37,7 @@ def seleccionar_camara():
 
 def main():
     try:
-        model = YOLO("my_model_2.pt")
+        model = YOLO("my_model_3.pt") #actualizar si se cambia el modelo de YOLO
         print("✅ Modelo cargado y sistema de visión listo.")
     except Exception as e:
         print(f"❌ Error al cargar modelo: {e}"); return
